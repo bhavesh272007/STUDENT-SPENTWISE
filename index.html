@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpendWise Pro | Engineering Dashboard</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root { --primary: #4e73df; --success: #1cc88a; --dark: #5a5c69; }
+        body { background-color: #f8f9fc; font-family: 'Nunito', sans-serif; }
+        .card { border: none; border-radius: 12px; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); }
+        .header-gradient { background: linear-gradient(180deg, #4e73df 10%, #224abe 100%); color: white; padding: 2rem 0; }
+        .stat-card { border-left: 0.25rem solid var(--primary) !important; }
+        .chart-container { position: relative; height: 300px; width: 100%; }
+    </style>
+</head>
+<body>
+
+<div class="header-gradient text-center mb-4">
+    <h2>🚀 SpendWise Pro Dashboard</h2>
+    <p>Advanced Analytics for Students</p>
+</div>
+
+<div class="container">
+    <div class="row">
+        <div class="col-xl-4 col-lg-5">
+            <div class="card mb-4">
+                <div class="card-header py-3 bg-white"><h6 class="m-0 font-weight-bold text-primary">Add Transaction</h6></div>
+                <div class="card-body">
+                    <input type="text" id="itemName" class="form-control mb-2" placeholder="Item (e.g. Petrol)">
+                    <input type="number" id="itemAmount" class="form-control mb-2" placeholder="Amount (₹)">
+                    <select id="itemCategory" class="form-select mb-3">
+                        <option value="Food">🍔 Food</option>
+                        <option value="Travel">🏍️ Travel/Petrol</option>
+                        <option value="Academic">📚 Academic</option>
+                        <option value="Personal">👕 Personal</option>
+                    </select>
+                    <button onclick="addExpense()" class="btn btn-primary w-100 shadow">Save Data</button>
+                </div>
+            </div>
+            
+            <div class="card stat-card shadow py-2">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Spent</div>
+                    <div class="h5 mb-0 font-weight-bold text-gray-800">₹<span id="totalDisplay">0</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-8 col-lg-7">
+            <div class="card mb-4">
+                <div class="card-header py-3 bg-white d-flex justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Expense Breakdown</h6>
+                    <button onclick="downloadCSV()" class="btn btn-sm btn-success">Download Professional Excel</button>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="expenseChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow mb-4">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead><tr><th>Date</th><th>Item</th><th>Category</th><th>Amount</th></tr></thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let myChart;
+
+    window.onload = function() {
+        initChart();
+        updateUI();
+    };
+
+    function addExpense() {
+        const name = document.getElementById('itemName').value;
+        const amount = parseFloat(document.getElementById('itemAmount').value);
+        const category = document.getElementById('itemCategory').value;
+        const date = new Date().toLocaleString();
+
+        if (!name || isNaN(amount)) return alert("Fill data properly!");
+
+        const expenses = JSON.parse(localStorage.getItem('pro_budget')) || [];
+        expenses.push({ name, amount, category, date });
+        localStorage.setItem('pro_budget', JSON.stringify(expenses));
+
+        updateUI();
+        // Clear inputs
+        document.getElementById('itemName').value = '';
+        document.getElementById('itemAmount').value = '';
+    }
+
+    function updateUI() {
+        const expenses = JSON.parse(localStorage.getItem('pro_budget')) || [];
+        const table = document.getElementById('tableBody');
+        let total = 0;
+        let catTotals = { Food: 0, Travel: 0, Academic: 0, Personal: 0 };
+
+        table.innerHTML = '';
+        expenses.reverse().forEach(exp => {
+            total += exp.amount;
+            catTotals[exp.category] += exp.amount;
+            table.innerHTML += `<tr><td>${exp.date}</td><td>${exp.name}</td><td>${exp.category}</td><td>₹${exp.amount}</td></tr>`;
+        });
+
+        document.getElementById('totalDisplay').innerText = total;
+        updateChart(catTotals);
+    }
+
+    function initChart() {
+        const ctx = document.getElementById('expenseChart').getContext('2d');
+        myChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Food', 'Travel', 'Academic', 'Personal'],
+                datasets: [{
+                    data: [0, 0, 0, 0],
+                    backgroundColor: ['#e74c3c', '#f1c40f', '#2ecc71', '#9b59b6']
+                }]
+            },
+            options: { maintainAspectRatio: false }
+        });
+    }
+
+    function updateChart(totals) {
+        myChart.data.datasets[0].data = [totals.Food, totals.Travel, totals.Academic, totals.Personal];
+        myChart.update();
+    }
+
+    function downloadCSV() {
+        const expenses = JSON.parse(localStorage.getItem('pro_budget')) || [];
+        // Professional CSV Header
+        let csv = "STUDENT EXPENDITURE REPORT\n";
+        csv += "Generated on: " + new Date().toLocaleString() + "\n\n";
+        csv += "Date,Item Description,Category,Amount (INR)\n";
+        
+        expenses.forEach(e => {
+            csv += `"${e.date}","${e.name}","${e.category}","${e.amount}"\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'Engineering_Budget_Report.csv';
+        a.click();
+    }
+</script>
+</body>
+</html>
